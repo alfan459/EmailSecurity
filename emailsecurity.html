@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Security Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .diagram {
+            position: relative;
+            height: 650px;
+            margin: 30px 0;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            overflow: hidden;
+        }
+        .domain {
+            position: absolute;
+            border: 2px dashed #999;
+            padding: 10px;
+            background-color: rgba(255,255,255,0.8);
+        }
+        .server {
+            position: absolute;
+            border: 2px solid #333;
+            padding: 10px;
+            background-color: white;
+            text-align: center;
+            width: 100px;
+            z-index: 2;
+        }
+        .malicious {
+            border-color: #ff3333;
+        }
+        .evil-icon {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            z-index: 3;
+        }
+        .email {
+            position: absolute;
+            width: 30px;
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 3px;
+            opacity: 0;
+            z-index: 3;
+            transition: all 0.5s linear;
+        }
+        .malicious-email {
+            background-color: #ff3333;
+        }
+        .connection {
+            position: absolute;
+            height: 4px;
+            background-color: #4CAF50;
+            z-index: 1;
+        }
+        .records {
+            position: absolute;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-y: auto;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #3e8e41;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #e9f7ef;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 10px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Enhanced Email Security Simulation</h1>
+        <div class="controls">
+            <button id="sendLegitimate">Send Legitimate Email (a.com to v.com)</button>
+            <button id="sendMalicious">Send Malicious Email (a.com)</button>
+            <button id="sendMaliciousB">Send Malicious Email (b.com)</button>
+            <button id="showDMARCReport">Show DMARC Report Flow</button>
+            <button id="reset">Reset</button>
+        </div>
+        <div class="status" id="status">Ready to simulate email delivery process</div>
+        <div class="diagram" id="diagram">
+            <!-- Domains -->
+            <div class="domain" style="left: 50px; top: 50px; width: 170px; height: 240px;">
+                <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">a.com</div>
+                <img src="/evil.png" alt="Evil icon" class="evil-icon" style="left: 20px; top: -15px;">
+                <div class="server malicious" style="top: 50px; left: 35px;">SMTP</div>
+                <div class="server" style="top: 150px; left: 35px;">DNS Auth.</div>
+            </div>
+            
+            <div class="domain" style="left: 350px; top: 50px; width: 170px; height: 240px;">
+                <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">Reflectors</div>
+                <div class="server" style="top: 50px; left: 35px;">SMTP</div>
+                <div class="server" style="top: 150px; left: 35px;">DNS Resolver</div>
+            </div>
+            
+            <div class="domain" style="left: 650px; top: 50px; width: 170px; height: 240px;">
+                <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">v.com</div>
+                <div class="server" style="top: 50px; left: 35px;">SMTP</div>
+                <div class="server" style="top: 150px; left: 35px;">DNS Auth.</div>
+            </div>
+            
+            <div class="domain" style="left: 50px; top: 350px; width: 170px; height: 240px;">
+                <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">b.com</div>
+                <img src="/evil.png" alt="Evil icon" class="evil-icon" style="left: 20px; top: -15px;">
+                <div class="server malicious" style="top: 50px; left: 35px;">SMTP</div>
+                <div class="server" style="top: 150px; left: 35px;">DNS Auth.</div>
+            </div>
+            
+            <!-- Connections -->
+            <div class="connection" style="left: 170px; top: 110px; width: 180px;"></div>
+            <div class="connection" style="left: 170px; top: 210px; width: 180px;"></div>
+            <div class="connection" style="left: 480px; top: 110px; width: 170px;"></div>
+            <div class="connection" style="left: 480px; top: 210px; width: 170px;"></div>
+            
+            <!-- Additional connections for b.com -->
+            <div class="connection" style="left: 170px; top: 410px; width: 180px;"></div>
+            <div class="connection" style="left: 170px; top: 510px; width: 180px;"></div>
+            
+            <!-- DNS Records top -->
+            <div class="records" style="left: 50px; top: 300px; right: 50px; height: 40px;">
+                <div>_dmarc.s1.a.com TXT "v=DMARC1; rua=mailto:v@s1.b.com, mailto:v@s2.b.com, ..."</div>
+            </div>
+            
+            <!-- DNS Records bottom -->
+            <div class="records" style="left: 230px; top: 400px; right: 50px; height: 80px;">
+                <div>s1.a.com._report._dmarc.s1.b.com TXT "v=DMARC1; rua=mailto:v@s1s1.b.com, mailto:v@s1s2.b.com, ..."</div>
+                <div>_smtp._tls.s1s1.b.com TXT "v=TLSRPTv1; rua=mailto:v@v.com, mailto:v2@v.com, ..."</div>
+            </div>
+            
+            <!-- Emails (will be created dynamically) -->
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4CAF50;"></div>
+                <span>Legitimate Email</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff3333;"></div>
+                <span>Malicious Email</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff9900;"></div>
+                <span>DMARC Report</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const diagram = document.getElementById('diagram');
+            const statusEl = document.getElementById('status');
+            const sendLegitimateBtn = document.getElementById('sendLegitimate');
+            const sendMaliciousBtn = document.getElementById('sendMalicious');
+            const sendMaliciousBBtn = document.getElementById('sendMaliciousB');
+            const showDMARCReportBtn = document.getElementById('showDMARCReport');
+            const resetBtn = document.getElementById('reset');
+            
+            let animationInProgress = false;
+            let emails = [];
+            
+            function updateStatus(message) {
+                statusEl.textContent = message;
+            }
+            
+            function createEmail(malicious = false, isReport = false) {
+                const email = document.createElement('div');
+                email.className = `email ${malicious ? 'malicious-email' : ''}`;
+                if (isReport) {
+                    email.style.backgroundColor = '#ff9900';
+                }
+                diagram.appendChild(email);
+                emails.push(email);
+                return email;
+            }
+            
+            function animateEmail(malicious = false) {
+                if (animationInProgress) {
+                    updateStatus('Animation already in progress. Please wait or reset.');
+                    return;
+                }
+                
+                animationInProgress = true;
+                resetEmails();
+                
+                const email = createEmail(malicious);
+                
+                // Set initial position (at a.com SMTP server)
+                email.style.left = '125px';
+                email.style.top = '110px';
+                email.style.opacity = '1';
+                
+                setTimeout(() => {
+                    // Step 1: a.com checks DNS authentication
+                    updateStatus(`${malicious ? 'Malicious' : 'Legitimate'} email created at a.com SMTP server`);
+                    email.style.left = '125px';
+                    email.style.top = '180px';
+                }, 1000);
+                
+                setTimeout(() => {
+                    // Step 2: DNS Auth results
+                    updateStatus(`a.com checking DNS authentication${malicious ? ' (suspicious activity detected)' : ''}`);
+                }, 2000);
+                
+                setTimeout(() => {
+                    // Step 3: Move to reflector SMTP
+                    email.style.left = '425px';
+                    email.style.top = '110px';
+                    updateStatus(`Email moving to reflector SMTP server${malicious ? ' (with warnings)' : ''}`);
+                }, 3000);
+                
+                setTimeout(() => {
+                    // Step 4: Reflector checks DNS
+                    email.style.left = '425px';
+                    email.style.top = '180px';
+                    updateStatus(`Reflector checking DNS records and DMARC policy`);
+                }, 4000);
+                
+                if (!malicious) {
+                    // For legitimate email, continue to v.com
+                    setTimeout(() => {
+                        email.style.left = '725px';
+                        email.style.top = '110px';
+                        updateStatus('Email verified and forwarded to v.com SMTP server');
+                    }, 5000);
+                    
+                    setTimeout(() => {
+                        // Final verification
+                        email.style.left = '725px';
+                        email.style.top = '180px';
+                        updateStatus('v.com performing final DNS authentication check');
+                    }, 6000);
+                    
+                    setTimeout(() => {
+                        // Delivery
+                        email.style.opacity = '0';
+                        updateStatus('Email successfully delivered to recipient at v.com');
+                        animationInProgress = false;
+                    }, 7000);
+                } else {
+                    // For malicious email, get blocked at reflector and generate DMARC report
+                    setTimeout(() => {
+                        email.style.opacity = '0';
+                        updateStatus('Malicious email detected and blocked by reflector! DMARC report being generated...');
+                        
+                        // Create DMARC report email
+                        const reportEmail = createEmail(false, true);
+                        reportEmail.style.backgroundColor = '#ff9900';
+                        reportEmail.style.left = '425px';
+                        reportEmail.style.top = '180px';
+                        reportEmail.style.opacity = '1';
+                        
+                    }, 5000);
+                    
+                    setTimeout(() => {
+                        // Send DMARC report to b.com
+                        const reportEmail = emails[emails.length-1];
+                        reportEmail.style.left = '125px';
+                        reportEmail.style.top = '410px';
+                        updateStatus('DMARC report sent to b.com (specified in DMARC record)');
+                    }, 6000);
+                    
+                    setTimeout(() => {
+                        const reportEmail = emails[emails.length-1];
+                        reportEmail.style.left = '125px';
+                        reportEmail.style.top = '510px';
+                        updateStatus('b.com processing DMARC report');
+                    }, 7000);
+                    
+                    setTimeout(() => {
+                        const reportEmail = emails[emails.length-1];
+                        reportEmail.style.opacity = '0';
+                        updateStatus('DMARC report processed. Security administrators notified of attempted spoofing.');
+                        animationInProgress = false;
+                    }, 8000);
+                }
+            }
+            
+            function animateEmailFromB() {
+                if (animationInProgress) {
+                    updateStatus('Animation already in progress. Please wait or reset.');
+                    return;
+                }
+                
+                animationInProgress = true;
+                resetEmails();
+                
+                const email = createEmail(true);
+                
+                // Set initial position (at b.com SMTP server)
+                email.style.left = '125px';
+                email.style.top = '410px';
+                email.style.opacity = '1';
+                
+                setTimeout(() => {
+                    // Step 1: b.com checks DNS authentication
+                    updateStatus('Malicious email created at b.com SMTP server');
+                    email.style.left = '125px';
+                    email.style.top = '510px';
+                }, 1000);
+                
+                setTimeout(() => {
+                    // Step 2: DNS Auth results
+                    updateStatus('b.com checking DNS authentication (spoofing a.com domain)');
+                }, 2000);
+                
+                setTimeout(() => {
+                    // Step 3: Move to reflector SMTP
+                    email.style.left = '425px';
+                    email.style.top = '110px';
+                    updateStatus('Email moving to reflector SMTP server (pretending to be from a.com)');
+                }, 3000);
+                
+                setTimeout(() => {
+                    // Step 4: Reflector checks DNS
+                    email.style.left = '425px';
+                    email.style.top = '180px';
+                    updateStatus('Reflector checking DNS records and DMARC policy');
+                }, 4000);
+                
+                setTimeout(() => {
+                    // For malicious email, get blocked at reflector and generate DMARC report
+                    email.style.opacity = '0';
+                    updateStatus('Malicious email detected and blocked! Domain spoofing detected. DMARC report being generated...');
+                    
+                    // Create DMARC report email
+                    const reportEmail = createEmail(false, true);
+                    reportEmail.style.backgroundColor = '#ff9900';
+                    reportEmail.style.left = '425px';
+                    reportEmail.style.top = '180px';
+                    reportEmail.style.opacity = '1';
+                }, 5000);
+                
+                setTimeout(() => {
+                    // Send DMARC report to b.com
+                    const reportEmail = emails[emails.length-1];
+                    reportEmail.style.left = '125px';
+                    reportEmail.style.top = '410px';
+                    updateStatus('DMARC report sent to b.com (as specified in DMARC record)');
+                }, 6000);
+                
+                setTimeout(() => {
+                    const reportEmail = emails[emails.length-1];
+                    reportEmail.style.left = '125px';
+                    reportEmail.style.top = '510px';
+                    updateStatus('b.com processing DMARC report (ironically, the attacker receives reports)');
+                }, 7000);
+                
+                setTimeout(() => {
+                    const reportEmail = emails[emails.length-1];
+                    reportEmail.style.opacity = '0';
+                    updateStatus('DMARC report processed. Note: In this scenario, the attacker domain receives reports about its own attack.');
+                    animationInProgress = false;
+                }, 8000);
+            }
+            
+            function showDMARCReportFlow() {
+                if (animationInProgress) {
+                    updateStatus('Animation already in progress. Please wait or reset.');
+                    return;
+                }
+                
+                animationInProgress = true;
+                resetEmails();
+                
+                updateStatus('Demonstrating DMARC reporting flow - how attackers might get DMARC reports');
+                
+                setTimeout(() => {
+                    // Create DMARC report email at Reflector
+                    const reportEmail = createEmail(false, true);
+                    reportEmail.style.backgroundColor = '#ff9900';
+                    reportEmail.style.left = '425px';
+                    reportEmail.style.top = '180px';
+                    reportEmail.style.opacity = '1';
+                    updateStatus('Reflector creates DMARC report after blocking spoofed email');
+                }, 1000);
+                
+                setTimeout(() => {
+                    // Send DMARC report to b.com
+                    const reportEmail = emails[emails.length-1];
+                    reportEmail.style.left = '125px';
+                    reportEmail.style.top = '410px';
+                    updateStatus('DMARC report sent to b.com based on rua= parameter in DMARC record');
+                }, 2000);
+                
+                setTimeout(() => {
+                    updateStatus('Problem: b.com is receiving DMARC reports for a.com domains due to DMARC configuration');
+                }, 4000);
+                
+                setTimeout(() => {
+                    const reportEmail = emails[emails.length-1];
+                    reportEmail.style.opacity = '0';
+                    updateStatus('Security issue: Attackers can collect DMARC reports by setting up fake domains in DMARC records');
+                    animationInProgress = false;
+                }, 6000);
+            }
+            
+            function resetEmails() {
+                emails.forEach(email => {
+                    if (email.parentNode) {
+                        email.parentNode.removeChild(email);
+                    }
+                });
+                emails = [];
+            }
+            
+            function reset() {
+                resetEmails();
+                updateStatus('Simulation reset. Ready to start a new email delivery process.');
+                animationInProgress = false;
+            }
+            
+            sendLegitimateBtn.addEventListener('click', () => animateEmail(false));
+            sendMaliciousBtn.addEventListener('click', () => animateEmail(true));
+            sendMaliciousBBtn.addEventListener('click', animateEmailFromB);
+            showDMARCReportBtn.addEventListener('click', showDMARCReportFlow);
+            resetBtn.addEventListener('click', reset);
+        });
+    </script>
+</body>
+</html>
