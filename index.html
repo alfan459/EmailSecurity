@@ -102,6 +102,10 @@
         button:hover {
             background-color: #3e8e41;
         }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
         .status {
             padding: 10px;
             margin: 10px 0;
@@ -126,6 +130,14 @@
             height: 10px;
             border-radius: 2px;
         }
+        .download-area {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f0f8ff;
+            border-radius: 8px;
+            display: none;
+        }
     </style>
     <link rel="icon" href="https://png.pngtree.com/png-vector/20220424/ourmid/pngtree-email-security-icon-badge-safe-send-vector-png-image_30107338.png" type="image/x-icon" />
 </head>
@@ -140,6 +152,12 @@
             <button id="reset">Reset</button>
         </div>
         <div class="status" id="status">Ready to simulate email delivery process</div>
+        
+        <div class="download-area" id="downloadArea">
+            <p>DMARC Report is ready for download:</p>
+            <button id="downloadReport">Download DMARC Report</button>
+        </div>
+        
         <div class="diagram" id="diagram">
             <!-- Domains -->
             <div class="domain" style="left: 50px; top: 50px; width: 170px; height: 240px;">
@@ -212,14 +230,17 @@
         document.addEventListener('DOMContentLoaded', function() {
             const diagram = document.getElementById('diagram');
             const statusEl = document.getElementById('status');
+            const downloadAreaEl = document.getElementById('downloadArea');
             const sendLegitimateBtn = document.getElementById('sendLegitimate');
             const sendMaliciousBtn = document.getElementById('sendMalicious');
             const sendMaliciousBBtn = document.getElementById('sendMaliciousB');
             const showDMARCReportBtn = document.getElementById('showDMARCReport');
+            const downloadReportBtn = document.getElementById('downloadReport');
             const resetBtn = document.getElementById('reset');
             
             let animationInProgress = false;
             let emails = [];
+            let currentReportType = null;
             
             function updateStatus(message) {
                 statusEl.textContent = message;
@@ -236,6 +257,150 @@
                 return email;
             }
             
+            function generateDMARCReport(reportType) {
+                const now = new Date();
+                const timestamp = now.toISOString();
+                const reportId = Math.random().toString(36).substring(2, 15);
+                
+                let report = '';
+                
+                if (reportType === 'a_to_b') {
+                    report = `DMARC Aggregate Report
+======================
+Report ID: ${reportId}
+Date: ${timestamp}
+Reporting Organization: reflector.example.com
+Report Domain: s1.a.com
+Submitter: dmarc-reporter@reflector.example.com
+Report Period: ${now.toISOString().split('T')[0]}
+
+Policy Published:
+  Domain: s1.a.com
+  DKIM: r
+  SPF: r
+  p: reject
+  pct: 100
+  rua: mailto:v@s1.b.com, mailto:v@s2.b.com
+
+Record Data:
+1. Source IP: 192.0.2.1
+   Count: 1
+   Disposition: reject
+   DKIM: fail
+   SPF: fail
+   Reason: DMARC policy evaluation
+   Envelope From: s1.a.com
+   Header From: s1.a.com
+   
+Authentication Results:
+  DKIM: fail (signature did not verify)
+  SPF: fail (sender IP does not match authorized IPs)
+  
+Detected Issues:
+- Domain spoofing attempt detected
+- Authentication failure for s1.a.com
+- IP address not authorized to send for this domain
+- Message rejected according to DMARC policy
+
+Note: This report is being sent to b.com as configured in the DMARC record.
+This configuration may present a security risk if b.com is not a trusted domain.
+`;
+                } else if (reportType === 'b_spoofing') {
+                    report = `DMARC Aggregate Report
+======================
+Report ID: ${reportId}
+Date: ${timestamp}
+Reporting Organization: reflector.example.com
+Report Domain: s1.a.com (spoofed by b.com)
+Submitter: dmarc-reporter@reflector.example.com
+Report Period: ${now.toISOString().split('T')[0]}
+
+Policy Published:
+  Domain: s1.a.com
+  DKIM: r
+  SPF: r
+  p: reject
+  pct: 100
+  rua: mailto:v@s1.b.com, mailto:v@s2.b.com
+
+Record Data:
+1. Source IP: 198.51.100.1 (b.com server)
+   Count: 1
+   Disposition: reject
+   DKIM: fail
+   SPF: fail
+   Reason: DMARC policy evaluation
+   Envelope From: s1.a.com
+   Header From: s1.a.com
+   
+Authentication Results:
+  DKIM: fail (signature did not verify)
+  SPF: fail (sender IP belongs to b.com, not a.com)
+  
+Detected Issues:
+- Cross-domain spoofing detected
+- b.com attempting to send as s1.a.com
+- Authentication failure for s1.a.com
+- Message rejected according to DMARC policy
+
+Note: This report is being sent to b.com as configured in the DMARC record.
+SECURITY CONCERN: The attacker (b.com) is receiving reports about its own attack.
+`;
+                } else {
+                    report = `DMARC Reporting Flow Analysis
+============================
+Report ID: ${reportId}
+Date: ${timestamp}
+Analysis Type: Security Vulnerability Assessment
+
+CONFIGURATION ANALYSIS:
+Domain: s1.a.com
+DMARC Record: v=DMARC1; rua=mailto:v@s1.b.com, mailto:v@s2.b.com, ...
+
+SECURITY VULNERABILITY:
+- DMARC reports for s1.a.com are being sent to external domain b.com
+- This configuration allows b.com to:
+  1. Receive detailed information about all email authentication failures for s1.a.com
+  2. Gain insight into email patterns, volumes, and security measures
+  3. Collect intelligence about which spoofing attempts are detected or missed
+  4. Potentially refine attack techniques based on report feedback
+
+RECOMMENDATION:
+1. Reconfigure DMARC record to send reports only to trusted domains
+2. Update _dmarc.s1.a.com TXT record to use internal email addresses
+3. Implement a reporting system within your own organization
+4. Regularly audit DMARC configuration for security issues
+
+SAMPLE SECURE CONFIGURATION:
+_dmarc.s1.a.com TXT "v=DMARC1; p=reject; rua=mailto:dmarc-reports@a.com;"
+
+This analysis highlights how DMARC reporting can be exploited if misconfigured.
+`;
+                }
+                
+                return report;
+            }
+            
+            function downloadTextFile(content, filename) {
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+            
+            function showDownloadArea(reportType) {
+                downloadAreaEl.style.display = 'block';
+                currentReportType = reportType;
+            }
+            
+            function hideDownloadArea() {
+                downloadAreaEl.style.display = 'none';
+                currentReportType = null;
+            }
+            
             function animateEmail(malicious = false) {
                 if (animationInProgress) {
                     updateStatus('Animation already in progress. Please wait or reset.');
@@ -244,6 +409,7 @@
                 
                 animationInProgress = true;
                 resetEmails();
+                hideDownloadArea();
                 
                 const email = createEmail(malicious);
                 
@@ -333,6 +499,7 @@
                         const reportEmail = emails[emails.length-1];
                         reportEmail.style.opacity = '0';
                         updateStatus('DMARC report processed. Security administrators notified of attempted spoofing.');
+                        showDownloadArea('a_to_b');
                         animationInProgress = false;
                     }, 8000);
                 }
@@ -346,6 +513,7 @@
                 
                 animationInProgress = true;
                 resetEmails();
+                hideDownloadArea();
                 
                 const email = createEmail(true);
                 
@@ -412,6 +580,7 @@
                     const reportEmail = emails[emails.length-1];
                     reportEmail.style.opacity = '0';
                     updateStatus('DMARC report processed. Note: In this scenario, the attacker domain receives reports about its own attack.');
+                    showDownloadArea('b_spoofing');
                     animationInProgress = false;
                 }, 8000);
             }
@@ -424,6 +593,7 @@
                 
                 animationInProgress = true;
                 resetEmails();
+                hideDownloadArea();
                 
                 updateStatus('Demonstrating DMARC reporting flow - how attackers might get DMARC reports');
                 
@@ -453,6 +623,7 @@
                     const reportEmail = emails[emails.length-1];
                     reportEmail.style.opacity = '0';
                     updateStatus('Security issue: Attackers can collect DMARC reports by setting up fake domains in DMARC records');
+                    showDownloadArea('report_flow');
                     animationInProgress = false;
                 }, 6000);
             }
@@ -468,6 +639,7 @@
             
             function reset() {
                 resetEmails();
+                hideDownloadArea();
                 updateStatus('Simulation reset. Ready to start a new email delivery process.');
                 animationInProgress = false;
             }
@@ -477,6 +649,24 @@
             sendMaliciousBBtn.addEventListener('click', animateEmailFromB);
             showDMARCReportBtn.addEventListener('click', showDMARCReportFlow);
             resetBtn.addEventListener('click', reset);
+            
+            downloadReportBtn.addEventListener('click', function() {
+                let filename = 'dmarc_report.txt';
+                let content = '';
+                
+                if (currentReportType === 'a_to_b') {
+                    filename = 'dmarc_report_a_attack.txt';
+                    content = generateDMARCReport('a_to_b');
+                } else if (currentReportType === 'b_spoofing') {
+                    filename = 'dmarc_report_b_spoofing.txt';
+                    content = generateDMARCReport('b_spoofing');
+                } else if (currentReportType === 'report_flow') {
+                    filename = 'dmarc_security_analysis.txt';
+                    content = generateDMARCReport('report_flow');
+                }
+                
+                downloadTextFile(content, filename);
+            });
         });
     </script>
 </body>
